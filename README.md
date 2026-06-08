@@ -25,6 +25,8 @@ esrgan_project/
 ├── train.py               # GAN training loop
 ├── pretrain.py            # Phase-1 PSNR pre-training
 ├── infer.py               # Single image / folder inference
+├── gui.py                 # Interactive Tkinter Desktop GUI
+├── fingerprint_forensics.py # Latent fingerprint recovery & matching
 └── requirements.txt
 ```
 
@@ -105,6 +107,38 @@ python infer.py --input photo.jpg --checkpoint ... --fp16
 # Tiled inference for large images (tile=0 disables tiling)
 python infer.py --input large.png --checkpoint ... --tile 512 --tile_pad 32
 ```
+
+---
+
+## Desktop GUI
+
+You can launch a fully featured desktop client built with Tkinter for an easy-to-use, visual upscaling experience:
+
+```bash
+python gui.py
+```
+
+Features include:
+- Visual drag-and-drop file selection
+- Model checkpoint switching
+- Real-time side-by-side comparison of LR and SR images
+- Integration with standard outputs
+
+---
+
+## Fingerprint Forensics Integration
+
+This repository includes a forensic-grade biometric application demonstrating real-world use cases for neural super-resolution:
+
+```bash
+python fingerprint_forensics.py
+```
+
+This pipeline automatically:
+1. Generates synthetic degraded "latent" fingerprints.
+2. Uses ESRGAN to reconstruct the fingerprint.
+3. Applies OpenCV biometric minutiae extraction to both.
+4. Performs objective minutiae matching (BFM) and provides a visual forensic comparison.
 
 ---
 
