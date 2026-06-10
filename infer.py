@@ -67,6 +67,7 @@ def infer_tiled(
 ) -> torch.Tensor:
     """
     Split a large LR tensor into tiles, upscale each, stitch back together.
+    Avoids edge artifacts by using padding and cropping out the center core region.
 
     lr: [1, 3, H, W] on CPU.
     Returns: [1, 3, H*scale, W*scale] on CPU.
@@ -86,19 +87,38 @@ def infer_tiled(
             current_tile += 1
             if logger:
                 logger.info(f"Processing tile {current_tile}/{total_tiles}...")
-            x_end = min(x + tile, w)
-            y_end = min(y + tile, h)
-            x_start = max(x_end - tile, 0)
-            y_start = max(y_end - tile, 0)
+            
+            # Core region (the part of the image this tile is responsible for)
+            core_x_start = x
+            core_x_end = min(x + stride, w)
+            core_y_start = y
+            core_y_end = min(y + stride, h)
 
-            patch = lr[:, :, y_start:y_end, x_start:x_end].to(device, dtype)
+            # Padded patch bounds (context for the model)
+            patch_x_start = max(core_x_start - pad, 0)
+            patch_x_end = min(core_x_end + pad, w)
+            patch_y_start = max(core_y_start - pad, 0)
+            patch_y_end = min(core_y_end + pad, h)
+
+            patch = lr[:, :, patch_y_start:patch_y_end, patch_x_start:patch_x_end].to(device, dtype)
             with torch.no_grad():
                 sr_patch = model(patch).cpu().float()
 
-            # Destination in SR canvas
-            dx, dy = x_start * scale, y_start * scale
-            dw, dh = (x_end - x_start) * scale, (y_end - y_start) * scale
-            sr[:, :, dy : dy + dh, dx : dx + dw] = sr_patch
+            # Offsets of the core region within the padded patch
+            offset_x = core_x_start - patch_x_start
+            offset_y = core_y_start - patch_y_start
+
+            # Extract core region from the upscaled SR patch
+            sr_offset_x = offset_x * scale
+            sr_offset_y = offset_y * scale
+            sr_core_w = (core_x_end - core_x_start) * scale
+            sr_core_h = (core_y_end - core_y_start) * scale
+
+            sr_core = sr_patch[:, :, sr_offset_y : sr_offset_y + sr_core_h, sr_offset_x : sr_offset_x + sr_core_w]
+
+            # Destination in full SR canvas
+            dx, dy = core_x_start * scale, core_y_start * scale
+            sr[:, :, dy : dy + sr_core_h, dx : dx + sr_core_w] = sr_core
 
     return sr
 

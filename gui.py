@@ -98,6 +98,36 @@ def download_with_progress(url, dest_path, progress_cb, log_cb):
         return False
 
 # ---------------------------------------------------------------------------
+# UI Tooltip Utility
+# ---------------------------------------------------------------------------
+class ToolTip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tooltip_window = None
+        self.widget.bind("<Enter>", self.show_tooltip)
+        self.widget.bind("<Leave>", self.hide_tooltip)
+
+    def show_tooltip(self, event=None):
+        if self.tooltip_window or not self.text:
+            return
+        x = self.widget.winfo_rootx() + 20
+        y = self.widget.winfo_rooty() + 20
+        self.tooltip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(tw, text=self.text, justify='left',
+                         bg=BG_INPUT, fg=FG_LIGHT, relief='solid', borderwidth=1,
+                         font=("Segoe UI", 9))
+        label.pack(ipadx=4, ipady=2)
+
+    def hide_tooltip(self, event=None):
+        tw = self.tooltip_window
+        self.tooltip_window = None
+        if tw:
+            tw.destroy()
+
+# ---------------------------------------------------------------------------
 # Interactive Before-After Slider Canvas
 # ---------------------------------------------------------------------------
 class SplitImageSlider(tk.Frame):
@@ -324,12 +354,14 @@ class ESRGANGUI:
             params_frame, textvariable=self.tile_size_var, width=8, bg=BG_INPUT, fg=FG_LIGHT, relief="solid", bd=1, highlightthickness=0
         )
         self.tile_size_entry.grid(row=1, column=1, sticky="w", padx=(5, 15))
+        ToolTip(self.tile_size_entry, "Max image chunk size to process at once.\nLower saves VRAM but takes longer.\nDefault: 512. Set 0 to disable.")
         
         tk.Label(params_frame, text="Tile Overlap:", fg=FG_LIGHT, bg=BG_DARK, font=("Segoe UI", 9, "bold")).grid(row=1, column=2, sticky="w")
         self.tile_pad_entry = tk.Entry(
             params_frame, textvariable=self.tile_pad_var, width=8, bg=BG_INPUT, fg=FG_LIGHT, relief="solid", bd=1, highlightthickness=0
         )
         self.tile_pad_entry.grid(row=1, column=3, sticky="w", padx=(5, 0))
+        ToolTip(self.tile_pad_entry, "Padding around tiles to prevent seams.\nDefault: 32. Increase if you see grid lines.")
         
         # 4. Action Buttons
         btn_action_frame = tk.Frame(left_panel, bg=BG_DARK)
@@ -774,7 +806,7 @@ class ESRGANGUI:
                 )
 
                 for line in process.stdout:
-                    self.log(line.strip())
+                    self.root.after(0, lambda l=line: self.log(l.strip()))
 
                 process.wait()
                 if process.returncode == 0:
