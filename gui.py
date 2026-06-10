@@ -401,6 +401,14 @@ class ESRGANGUI:
             fg="white", activebackground="#9333ea", activeforeground="white", relief="flat", pady=6, command=self.run_fingerprint_demo
         )
         self.fingerprint_btn.grid(row=1, column=2, sticky="ew", padx=(2, 0))
+
+        # Row 2: Paradigm Shifts (Creative Tools)
+        self.microcosm_btn = tk.Button(
+            btn_action_frame, text="🌌 Infinite Microcosm Explorer", font=("Segoe UI", 9, "bold"), bg="#ec4899",
+            fg="white", activebackground="#db2777", activeforeground="white", relief="flat", pady=6, command=self.run_microcosm
+        )
+        self.microcosm_btn.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(8, 0))
+
         
         # Logs Section
         log_header = tk.Label(left_panel, text="Execution Logs", font=("Segoe UI", 10, "bold"), fg=FG_MUTED, bg=BG_DARK)
@@ -819,6 +827,54 @@ class ESRGANGUI:
                 self.root.after(0, self.reset_buttons)
 
         threading.Thread(target=infer_task, daemon=True).start()
+
+    def run_microcosm(self):
+        chk_path = self.checkpoint_path.get()
+        if not os.path.exists(chk_path):
+            messagebox.showwarning("Model Missing", "Please download the model checkpoint first.")
+            return
+            
+        in_path = self.input_path.get()
+        if not in_path or not os.path.isfile(in_path):
+            messagebox.showwarning("Warning", "Please select a single input image file for the Microcosm Explorer.")
+            return
+
+        self.run_btn.config(state="disabled")
+        self.microcosm_btn.config(state="disabled")
+        self.log("Starting Infinite Microcosm Explorer journey...")
+        self.log("This will generate a sequence of frames zooming infinitely into hallucinatory details.")
+
+        def microcosm_task():
+            try:
+                cmd = [
+                    sys.executable, "-u", "microcosm_explorer.py",
+                    "--input", in_path,
+                    "--checkpoint", chk_path,
+                    "--output_dir", os.path.join(self.output_path.get(), "microcosm_frames"),
+                    "--levels", "3",
+                    "--frames_per_level", "60"
+                ]
+
+                process = subprocess.Popen(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, bufsize=1, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                )
+
+                for line in process.stdout:
+                    self.root.after(0, lambda l=line: self.log(l.strip()))
+
+                process.wait()
+                if process.returncode == 0:
+                    self.root.after(0, lambda: messagebox.showinfo("Journey Complete", f"Microcosm frames successfully generated in:\n{os.path.join(self.output_path.get(), 'microcosm_frames')}"))
+                else:
+                    self.root.after(0, lambda: messagebox.showerror("Error", f"Process failed with exit code: {process.returncode}"))
+            except Exception as e:
+                self.root.after(0, lambda: messagebox.showerror("Error", f"Thread error:\n{e}"))
+            finally:
+                self.root.after(0, self.reset_buttons)
+                self.root.after(0, lambda: self.microcosm_btn.config(state="normal"))
+
+        threading.Thread(target=microcosm_task, daemon=True).start()
 
     def on_inference_success(self):
         messagebox.showinfo("Success", "Super-Resolution completed successfully!")
